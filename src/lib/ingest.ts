@@ -1,5 +1,6 @@
 import { unzipSync } from "fflate";
 import { pdfLines } from "./parse/pdf";
+import { polyfillStreamIteration } from "./polyfills";
 import { parseReceipt } from "./parse";
 import type { Receipt } from "./parse/types";
 
@@ -8,6 +9,7 @@ type PdfJs = typeof import("pdfjs-dist");
 let pdfjsP: Promise<PdfJs> | null = null;
 /** pdf.js runs its own worker, so reading PDFs does not block the page. */
 function loadPdfJs(): Promise<PdfJs> {
+  polyfillStreamIteration();
   // the legacy build ships polyfills; the default one fails on Safari (e.g. async iteration of streams)
   return (pdfjsP ??= import("pdfjs-dist/legacy/build/pdf.mjs").then((m) => {
     m.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();

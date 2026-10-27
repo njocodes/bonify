@@ -72,3 +72,21 @@ describe("linesFromTextItems", () => {
     expect(lines[0]).toMatch(/^\s*MILCH\s{2,}1,09 B$/);
   });
 });
+
+describe("polyfillStreamIteration", () => {
+  it("lets a ReadableStream be read with for await when the browser lacks it", async () => {
+    const { polyfillStreamIteration } = await import("../polyfills");
+    const proto = ReadableStream.prototype as unknown as Record<symbol, unknown>;
+    const original = proto[Symbol.asyncIterator];
+    delete proto[Symbol.asyncIterator];
+    try {
+      polyfillStreamIteration();
+      const stream = new ReadableStream<number>({ start(c) { c.enqueue(1); c.enqueue(2); c.close(); } });
+      const seen: number[] = [];
+      for await (const v of stream as unknown as AsyncIterable<number>) seen.push(v);
+      expect(seen).toEqual([1, 2]);
+    } finally {
+      proto[Symbol.asyncIterator] = original;
+    }
+  });
+});
