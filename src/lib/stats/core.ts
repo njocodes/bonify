@@ -117,6 +117,69 @@ export function overview(receipts: Receipt[], overrides: Overrides = {}): Overvi
   };
 }
 
+export type PricePoint = { date: string; unitCents: number; offer: boolean };
+
+/** A purchase this much below both the purchase before and the one after counts as a one-off offer. */
+const OFFER_DIP = 0.92;
+/** Smallest sustained change that is reported as a price change. */
+const TREND_MIN = 0.03;
+
+/**
+ * One point per day (the higher price if you shopped twice), oldest first. A price that dips well below
+ * both neighbours and recovers is flagged as an offer, so it is not read as a price change.
+ */
+export function pricePoints(prices: { date: string; unitCents: number }[]): PricePoint[] {
+  const perDay = new Map<string, number>();
+  for (const p of prices) perDay.set(p.date, Math.max(perDay.get(p.date) ?? 0, p.unitCents));
+  const pts = [...perDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, unitCents]) => ({ date, unitCents, offer: false }));
+  for (let i = 1; i < pts.length - 1; i++) {
+    if (pts[i].unitCents < OFFER_DIP * pts[i - 1].unitCents && pts[i].unitCents < OFFER_DIP * pts[i + 1].unitCents) pts[i].offer = true;
+  }
+  return pts;
+}
+
+export type Trend = {
+  /** signed relative change, 0 when nothing changed lastingly */
+  change: number;
+  fromCents: number;
+  toCents: number;
+  fromDate: string;
+  toDate: string;
+  offers: number;
+};
+
+/**
+ * Lasting price change of a product, ignoring offers. It compares the two earliest with the two latest
+ * regular prices and takes the cautious side of each pair, so a change counts only once the new price
+ * has been paid at least twice. A product whose price keeps jumping back to the old level (offers, or
+ * different pack sizes under one name) shows no lasting change. Returns null with fewer than three
+ * regular purchases.
+ */
+export function trend(prices: { date: string; unitCents: number }[]): Trend | null {
+  const pts = pricePoints(prices);
+  const regular = pts.filter((p) => !p.offer);
+  if (regular.length < 3) return null;
+  const first = regular.slice(0, 2);
+  const last = regular.slice(-2);
+  const offers = pts.length - regular.length;
+  const hi = (a: PricePoint[]) => a.reduce((m, p) => (p.unitCents > m.unitCents ? p : m));
+  const lo = (a: PricePoint[]) => a.reduce((m, p) => (p.unitCents < m.unitCents ? p : m));
+  const upFrom = hi(first);
+  const upTo = lo(last);
+  const up = upTo.unitCents / upFrom.unitCents - 1;
+  // after the rise the price must not come back down to the old level
+  const rose = regular.findIndex((p) => p.unitCents >= upFrom.unitCents * (1 + TREND_MIN));
+  const stayedUp = rose >= 0 && regular.slice(rose).every((p) => p.unitCents > upFrom.unitCents * (1 + TREND_MIN / 2));
+  if (up >= TREND_MIN && stayedUp) return { change: up, fromCents: upFrom.unitCents, toCents: upTo.unitCents, fromDate: upFrom.date, toDate: upTo.date, offers };
+  const downFrom = lo(first);
+  const downTo = hi(last);
+  const down = downTo.unitCents / downFrom.unitCents - 1;
+  const fell = regular.findIndex((p) => p.unitCents <= downFrom.unitCents * (1 - TREND_MIN));
+  const stayedDown = fell >= 0 && regular.slice(fell).every((p) => p.unitCents < downFrom.unitCents * (1 - TREND_MIN / 2));
+  if (down <= -TREND_MIN && stayedDown) return { change: down, fromCents: downFrom.unitCents, toCents: downTo.unitCents, fromDate: downFrom.date, toDate: downTo.date, offers };
+  return { change: 0, fromCents: regular[0].unitCents, toCents: regular[regular.length - 1].unitCents, fromDate: regular[0].date, toDate: regular[regular.length - 1].date, offers };
+}
+
 export type Product = {
   rawName: string;
   category: CategoryId;
@@ -129,6 +192,9 @@ export type Product = {
   last: string;
   /** one point per purchase, oldest first */
   prices: { date: string; unitCents: number }[];
+  /** the same prices, one per day, with one-off offers flagged */
+  points: PricePoint[];
+  trend: Trend | null;
 };
 
 export function products(receipts: Receipt[], overrides: Overrides = {}): Product[] {
@@ -136,7 +202,7 @@ export function products(receipts: Receipt[], overrides: Overrides = {}): Produc
   for (const r of receipts) {
     for (const l of linesOf(r, overrides)) {
       let p = map.get(l.rawName);
-      if (!p) map.set(l.rawName, (p = { rawName: l.rawName, category: l.category, trips: 0, qty: 0, unit: l.unit, cents: 0, avgUnitCents: 0, first: l.date, last: l.date, prices: [], receipts: new Set() }));
+      if (!p) map.set(l.rawName, (p = { rawName: l.rawName, category: l.category, trips: 0, qty: 0, unit: l.unit, cents: 0, avgUnitCents: 0, first: l.date, last: l.date, prices: [], points: [], trend: null, receipts: new Set() }));
       p.receipts.add(l.receiptId);
       p.qty += l.qty;
       p.cents += l.cents;
@@ -149,6 +215,8 @@ export function products(receipts: Receipt[], overrides: Overrides = {}): Produc
     p.trips = rs.size;
     p.prices.sort((a, b) => a.date.localeCompare(b.date));
     p.avgUnitCents = Math.round(sum(p.prices.map((x) => x.unitCents)) / p.prices.length);
+    p.points = pricePoints(p.prices);
+    p.trend = trend(p.prices);
     return p;
   });
 }
@@ -158,15 +226,25 @@ export function products(receipts: Receipt[], overrides: Overrides = {}): Produc
  * Each step compares the average unit price of products bought in two consecutive months.
  */
 export function priceIndex(receipts: Receipt[]): { month: string; index: number }[] {
-  const byProduct = new Map<string, Map<string, number[]>>();
+  const raw = new Map<string, { date: string; unitCents: number }[]>();
   for (const r of receipts) {
     for (const l of linesOf(r)) {
-      const pm = byProduct.get(l.rawName) ?? new Map<string, number[]>();
-      const arr = pm.get(monthOf(l.date)) ?? [];
-      arr.push(l.unitCents);
-      pm.set(monthOf(l.date), arr);
-      byProduct.set(l.rawName, pm);
+      const arr = raw.get(l.rawName) ?? [];
+      arr.push({ date: l.date, unitCents: l.unitCents });
+      raw.set(l.rawName, arr);
     }
+  }
+  // per product and month: average of the regular (non-offer) prices
+  const byProduct = new Map<string, Map<string, number[]>>();
+  for (const [name, prices] of raw) {
+    const pm = new Map<string, number[]>();
+    for (const p of pricePoints(prices)) {
+      if (p.offer) continue;
+      const arr = pm.get(monthOf(p.date)) ?? [];
+      arr.push(p.unitCents);
+      pm.set(monthOf(p.date), arr);
+    }
+    byProduct.set(name, pm);
   }
   const months = [...new Set(receipts.map((r) => monthOf(r.date)))].sort();
   const avg = (xs: number[]) => sum(xs) / xs.length;

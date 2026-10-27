@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorize } from "../categories";
-import { bonus, filterPeriod, habits, overview, priceIndex, products, weekdayOf } from "../stats/core";
+import { bonus, filterPeriod, habits, overview, priceIndex, pricePoints, products, trend, weekdayOf } from "../stats/core";
 import type { Item, Receipt } from "../parse/types";
 
 const item = (rawName: string, cents: number, extra: Partial<Item> = {}): Item => ({ rawName, qty: 1, unit: "pc", unitCents: cents, cents, taxClass: "B", deposit: false, discount: false, ...extra });
@@ -68,5 +68,45 @@ describe("stats", () => {
     expect(b.earnedCents).toBe(30);
     expect(b.depositCents).toBe(25);
     expect(b.discountCents).toBe(300);
+  });
+});
+
+const series = (...cents: number[]) => cents.map((unitCents, i) => ({ date: `2026-0${i + 1}-10`, unitCents }));
+
+describe("price trend", () => {
+  it("reports a lasting increase", () => {
+    const t = trend(series(109, 109, 119, 119))!;
+    expect(t.fromCents).toBe(109);
+    expect(t.toCents).toBe(119);
+    expect(t.change).toBeCloseTo(119 / 109 - 1, 5);
+  });
+  it("does not count a one-off offer as a change", () => {
+    const pts = pricePoints(series(109, 79, 109, 109));
+    expect(pts.map((p) => p.offer)).toEqual([false, true, false, false]);
+    expect(trend(series(109, 79, 109, 109))).toMatchObject({ change: 0, offers: 1 });
+  });
+  it("does not report an increase after a single higher price", () => {
+    expect(trend(series(109, 109, 109, 129))!.change).toBe(0);
+  });
+  it("does not read an offer at the end as a price drop", () => {
+    expect(trend(series(109, 109, 79))!.change).toBe(0);
+  });
+  it("shows no change when the price keeps returning to the old level", () => {
+    expect(trend(series(149, 149, 229, 149, 149, 229, 229))!.change).toBe(0);
+  });
+  it("reports a lasting decrease", () => {
+    expect(trend(series(129, 129, 99, 99))!.change).toBeLessThan(0);
+  });
+  it("needs three purchases", () => {
+    expect(trend(series(100, 200))).toBeNull();
+  });
+  it("keeps offers out of the inflation index", () => {
+    const rs = [
+      rec("2026-01-05", "10:00", [item("MILCH", 100)]),
+      rec("2026-02-05", "10:00", [item("MILCH", 60)]),
+      rec("2026-03-05", "10:00", [item("MILCH", 100)]),
+      rec("2026-04-05", "10:00", [item("MILCH", 100)]),
+    ];
+    expect(priceIndex(rs).every((x) => x.index === 100)).toBe(true);
   });
 });

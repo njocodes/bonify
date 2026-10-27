@@ -11,8 +11,8 @@ import { useBonify } from "@/lib/store/BonifyProvider";
 
 type Sort = "spend" | "trips" | "price";
 
-/** Relative price change from the first to the last purchase, or null with fewer than two prices. */
-const change = (p: Product) => (p.prices.length > 1 && p.prices[0].unitCents > 0 ? p.prices[p.prices.length - 1].unitCents / p.prices[0].unitCents - 1 : null);
+/** Lasting price change without one-off offers, or null when there are too few purchases to tell. */
+const change = (p: Product) => (p.trend ? p.trend.change : null);
 
 export default function Products() {
   const { t, lang, view, overrides, setOverride } = useBonify();
@@ -26,6 +26,8 @@ export default function Products() {
     const key = (p: Product) => (sort === "spend" ? p.cents : sort === "trips" ? p.trips : Math.abs(change(p) ?? 0));
     return f.sort((a, b) => key(b) - key(a));
   }, [all, q, sort]);
+  const rising = useMemo(() => all.filter((p) => p.trend && p.trend.change > 0).sort((a, b) => b.trend!.change - a.trend!.change).slice(0, 10), [all]);
+  const offerCount = useMemo(() => all.reduce((n, p) => n + (p.trend ? p.trend.offers : 0), 0), [all]);
   const current = sel ? all.find((p) => p.rawName === sel) : null;
   const unitLabel = (p: Product) => (p.unit === "kg" ? t("per_kg") : t("per_piece"));
 
@@ -53,8 +55,18 @@ export default function Products() {
             </label>
           </section>
           <section className="card p-4">
-            <h2 className="mb-3 text-base">{t("price_history")}</h2>
-            <LinesChart step data={current.prices.map((p) => ({ x: p.date, y: p.unitCents / 100 }))} name={`${t("avg_price")} ${unitLabel(current)}`} fmt={(v) => eur(v * 100, lang)} tickFmt={(d) => fmtDate(d, lang)} />
+            <h2 className="text-base">{t("price_history")}</h2>
+            <p className="mb-3 text-sm text-muted">
+              {!current.trend
+                ? t("trend_need")
+                : current.trend.change > 0
+                  ? t("trend_up", { a: eur(current.trend.fromCents, lang), b: eur(current.trend.toCents, lang) })
+                  : current.trend.change < 0
+                    ? t("trend_down", { a: eur(current.trend.fromCents, lang), b: eur(current.trend.toCents, lang) })
+                    : t("trend_flat")}
+              {current.trend && current.trend.offers > 0 && ` · ${t("offers_note", { n: current.trend.offers })}`}
+            </p>
+            <LinesChart step data={current.points.map((p) => ({ x: p.date, y: p.unitCents / 100, o: p.offer }))} name={`${t("avg_price")} ${unitLabel(current)}`} fmt={(v) => eur(v * 100, lang)} tickFmt={(d) => fmtDate(d, lang)} />
           </section>
         </div>
       ) : (
@@ -63,6 +75,28 @@ export default function Products() {
             <h2 className="text-base">{t("index_title")}</h2>
             <p className="mb-3 text-xs text-muted">{t("index_hint")}</p>
             {index.length > 1 ? <LinesChart data={index.map((i) => ({ x: i.month, y: i.index }))} name={t("index_title")} fmt={(v) => v.toFixed(0)} tickFmt={(m) => m.slice(2)} /> : <p className="text-sm text-muted">{t("index_need")}</p>}
+          </section>
+          <section className="card p-4">
+            <h2 className="text-base">{t("rising_title")}</h2>
+            <p className="mb-3 text-xs text-muted">{t("rising_hint")}</p>
+            {rising.length === 0 ? (
+              <p className="text-sm text-muted">{t("rising_none")}</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {rising.map((p) => (
+                  <li key={p.rawName}>
+                    <button type="button" onClick={() => setSel(p.rawName)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">{p.rawName}</span>
+                        <span className="block text-xs text-muted">{t("rising_from_to", { a: eur(p.trend!.fromCents, lang), b: eur(p.trend!.toCents, lang) })} {p.unit === "kg" ? t("per_kg") : ""}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">{pct(p.trend!.change, lang)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {offerCount > 0 && <p className="mt-3 text-xs text-muted">{t("offers_note", { n: offerCount })}</p>}
           </section>
           <div className="flex flex-wrap items-center gap-3">
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="min-w-0 flex-1 rounded-full border border-line bg-surface2 px-4 py-2 text-sm" />

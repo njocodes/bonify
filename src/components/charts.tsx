@@ -23,7 +23,10 @@ export function BarsChart({ data, name, fmt, tickFmt }: { data: { x: string; y: 
   );
 }
 
-export function LinesChart({ data, name, fmt, tickFmt, step = false, domain }: { data: { x: string; y: number }[]; name: string; fmt: Fmt; tickFmt?: (x: string) => string; step?: boolean; domain?: [number | "auto", number | "auto"] }) {
+type DotProps = { cx?: number; cy?: number; payload?: { o?: boolean }; index?: number };
+
+/** `o: true` rows are drawn as hollow dots (one-off offers). */
+export function LinesChart({ data, name, fmt, tickFmt, step = false, domain }: { data: { x: string; y: number; o?: boolean }[]; name: string; fmt: Fmt; tickFmt?: (x: string) => string; step?: boolean; domain?: [number | "auto", number | "auto"] }) {
   return (
     <div className="h-48 w-full" role="img" aria-label={name}>
       <ResponsiveContainer width="100%" height="100%">
@@ -32,7 +35,7 @@ export function LinesChart({ data, name, fmt, tickFmt, step = false, domain }: {
           <XAxis dataKey="x" tick={tick} tickFormatter={tickFmt} axisLine={false} tickLine={false} interval="preserveStartEnd" />
           <YAxis tick={tick} tickFormatter={fmt} axisLine={false} tickLine={false} width={48} domain={domain ?? ["auto", "auto"]} />
           <Tooltip contentStyle={tip} formatter={(v) => [fmt(Number(v)), name]} labelFormatter={(l) => (tickFmt ? tickFmt(String(l)) : String(l))} />
-          <Line type={step ? "stepAfter" : "monotone"} dataKey="y" stroke="var(--accent)" strokeWidth={2} dot={data.length < 25} isAnimationActive={false} />
+          <Line type={step ? "stepAfter" : "monotone"} dataKey="y" stroke="var(--accent)" strokeWidth={2} dot={(p: DotProps) => (data.length < 25 || p.payload?.o ? <circle key={p.index} cx={p.cx} cy={p.cy} r={p.payload?.o ? 5 : 3} fill={p.payload?.o ? "var(--bg)" : "var(--accent)"} stroke="var(--accent)" strokeWidth={2} /> : <g key={p.index} />)} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
