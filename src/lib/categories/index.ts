@@ -24,5 +24,5 @@ export function categorize(rawName: string): CategoryId {
 
 /** Category of a product: the user's correction if there is one, otherwise the keyword list. */
 export function categoryOf(rawName: string, overrides: Record<string, CategoryId> = {}): CategoryId {
-  return overrides[rawName] ?? categorize(rawName);
+  return Object.hasOwn(overrides, rawName) ? overrides[rawName] : categorize(rawName);
 }

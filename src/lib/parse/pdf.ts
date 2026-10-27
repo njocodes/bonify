@@ -35,10 +35,11 @@ export function linesFromTextItems(items: TextItem[]): string[] {
 type PdfJs = typeof import("pdfjs-dist");
 
 /** Text lines of all pages of a PDF, top to bottom, page after page. */
-export async function pdfLines(data: Uint8Array, pdfjs: PdfJs): Promise<string[]> {
+export async function pdfLines(data: Uint8Array, pdfjs: PdfJs, maxPages = Infinity): Promise<string[]> {
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true }).promise;
   const out: string[] = [];
   try {
+    if (doc.numPages > maxPages) throw new Error("too many pages");
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
       const content = await page.getTextContent();

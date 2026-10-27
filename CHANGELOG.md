@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Backup import validates every field; imported category overrides must use known categories
+- Size and count limits for PDFs and ZIP files, PDF header check
+- Own 404 page and a page title per route
+
 ## 0.1.0
 
 First public version.

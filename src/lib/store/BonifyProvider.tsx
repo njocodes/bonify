@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CategoryId } from "../categories";
 import { translate, type Key, type Lang } from "../i18n/dict";
+import { parseBackup } from "../backup";
 import { ingestFiles } from "../ingest";
 import type { Receipt } from "../parse/types";
 import { filterPeriod } from "../stats/core";
@@ -148,12 +149,12 @@ export function BonifyProvider({ children }: { children: ReactNode }) {
 
   const importBackup = useCallback(async (json: string) => {
     try {
-      const d = JSON.parse(json) as { app?: string; receipts?: Receipt[]; overrides?: Record<string, CategoryId> };
-      if (d.app !== "bonify" || !Array.isArray(d.receipts)) return false;
-      const rs = d.receipts.filter((r) => r && typeof r.id === "string" && typeof r.date === "string" && Array.isArray(r.items));
-      await store.replaceAll(rs, d.overrides ?? {});
+      const d = parseBackup(json);
+      if (!d) return false;
+      const rs = d.receipts;
+      await store.replaceAll(rs, d.overrides);
       setAll(rs.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)));
-      setOverrides(d.overrides ?? {});
+      setOverrides(d.overrides);
       return true;
     } catch {
       return false;

@@ -4,6 +4,13 @@ import { polyfillStreamIteration } from "./polyfills";
 import { parseReceipt } from "./parse";
 import type { Receipt } from "./parse/types";
 
+/** Limits against oversized or malicious files (a ZIP bomb would otherwise freeze the tab). */
+const MAX_PDF_BYTES = 5 * 1024 * 1024;
+const MAX_ZIP_ENTRIES = 5000;
+const MAX_UNZIPPED_BYTES = 500 * 1024 * 1024;
+const MAX_PAGES = 10;
+const isPdf = (d: Uint8Array) => d[0] === 0x25 && d[1] === 0x50 && d[2] === 0x44 && d[3] === 0x46; // "%PDF"
+
 type PdfJs = typeof import("pdfjs-dist");
 
 let pdfjsP: Promise<PdfJs> | null = null;
@@ -23,16 +30,30 @@ export type IngestResult = { receipts: Receipt[]; failed: string[] };
 async function expand(files: File[]): Promise<{ name: string; data: Uint8Array }[]> {
   const out: { name: string; data: Uint8Array }[] = [];
   for (const f of files) {
+    const isZip = /\.zip$/i.test(f.name) || f.type === "application/zip";
+    if (f.size > (isZip ? MAX_UNZIPPED_BYTES : MAX_PDF_BYTES)) {
+      out.push({ name: f.name, data: new Uint8Array() });
+      continue;
+    }
     const buf = new Uint8Array(await f.arrayBuffer());
     if (/\.zip$/i.test(f.name) || f.type === "application/zip") {
       try {
-        const entries = unzipSync(buf, { filter: (e) => /\.pdf$/i.test(e.name) && !e.name.includes("__MACOSX") });
+        let count = 0;
+        let total = 0;
+        const entries = unzipSync(buf, {
+          filter: (e) => {
+            if (!/\.pdf$/i.test(e.name) || e.name.includes("__MACOSX")) return false;
+            total += e.originalSize;
+            if (++count > MAX_ZIP_ENTRIES || e.originalSize > MAX_PDF_BYTES || total > MAX_UNZIPPED_BYTES) throw new Error("ZIP too large");
+            return true;
+          },
+        });
         for (const [name, data] of Object.entries(entries)) out.push({ name: name.split("/").pop() ?? name, data });
       } catch {
         out.push({ name: f.name, data: new Uint8Array() });
       }
     } else if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
-      out.push({ name: f.name, data: buf });
+      out.push({ name: f.name, data: f.size > MAX_PDF_BYTES ? new Uint8Array() : buf });
     }
   }
   return out;
@@ -53,7 +74,8 @@ export async function ingestFiles(files: File[], onProgress?: (done: number, tot
   let done = 0;
   for (const p of pdfs) {
     try {
-      const r = parseReceipt(await pdfLines(p.data, pdfjs));
+      if (!isPdf(p.data)) throw new Error("not a PDF or too large");
+      const r = parseReceipt(await pdfLines(p.data, pdfjs, MAX_PAGES));
       if (r && r.date && r.items.length) receipts.push(r);
       else failed.push(p.name);
     } catch (e) {
