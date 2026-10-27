@@ -48,9 +48,9 @@ const en = {
 
   products_title: "Products",
   search: "Search products",
-  sort_spend: "By spend",
-  sort_trips: "By frequency",
-  sort_price: "By price change",
+  sort_spend: "Spend",
+  sort_trips: "Frequency",
+  sort_price: "Price change",
   bought_n: "{n}× bought",
   total_spent: "Total spent",
   avg_price: "Avg. price",
@@ -114,6 +114,8 @@ const en = {
   delete_confirm: "Delete all receipts and settings from this device?",
   receipts_n: "{n} receipts stored",
   footerSource: "Source code",
+  legalPrivacy: "Privacy",
+  legalImprint: "Imprint",
   footerDisclaimer: "Not affiliated with any supermarket chain. Your receipts stay in your browser.",
   error_db: "Could not access browser storage. Private mode may block it.",
 
@@ -180,9 +182,9 @@ const de: Record<Key, string> = {
 
   products_title: "Produkte",
   search: "Produkte suchen",
-  sort_spend: "Nach Ausgaben",
-  sort_trips: "Nach Häufigkeit",
-  sort_price: "Nach Preisänderung",
+  sort_spend: "Ausgaben",
+  sort_trips: "Häufigkeit",
+  sort_price: "Preis",
   bought_n: "{n}× gekauft",
   total_spent: "Gesamt ausgegeben",
   avg_price: "Ø Preis",
@@ -246,6 +248,8 @@ const de: Record<Key, string> = {
   delete_confirm: "Alle Bons und Einstellungen von diesem Gerät löschen?",
   receipts_n: "{n} Bons gespeichert",
   footerSource: "Quellcode",
+  legalPrivacy: "Datenschutz",
+  legalImprint: "Impressum",
   footerDisclaimer: "Nicht mit einer Supermarktkette verbunden. Deine Bons bleiben in deinem Browser.",
   error_db: "Kein Zugriff auf den Browser-Speicher. Der private Modus kann ihn blockieren.",
 

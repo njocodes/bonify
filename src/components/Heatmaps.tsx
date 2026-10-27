@@ -48,15 +48,12 @@ export function CalendarHeatmap({ days }: { days: { date: string; cents: number 
     }
     weeks.push(week);
   }
+  // every week is one column that shrinks to fit the card, so nothing scrolls sideways
   return (
-    <div className="no-scrollbar overflow-x-auto" role="img" aria-label={t("calendar")}>
-      <div className="flex w-max gap-1">
-        {weeks.map((w, i) => (
-          <div key={i} className="grid gap-1">
-            {w.map((d) => <span key={d.date} title={`${d.date}: ${eur(d.cents, lang)}`} className="block h-3.5 w-3.5 rounded-[3px]" style={{ background: shade(d.cents, max) }} />)}
-          </div>
-        ))}
-      </div>
+    <div role="img" aria-label={t("calendar")} className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, gridTemplateRows: "repeat(7, auto)", gridAutoFlow: "column" }}>
+      {weeks.flat().map((d) => (
+        <span key={d.date} title={`${d.date}: ${eur(d.cents, lang)}`} className="block aspect-square rounded-[2px]" style={{ background: shade(d.cents, max) }} />
+      ))}
     </div>
   );
 }

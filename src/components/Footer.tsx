@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useBonify } from "@/lib/store/BonifyProvider";
 
 export function Footer() {
@@ -10,7 +11,7 @@ export function Footer() {
         <a href="https://github.com/njocodes/bonify" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
           {t("footerSource")}
         </a>{" "}
-        · MIT
+        · MIT · <Link href="/privacy/" className="underline underline-offset-2">{t("legalPrivacy")}</Link> · <Link href="/imprint/" className="underline underline-offset-2">{t("legalImprint")}</Link>
       </p>
     </footer>
   );

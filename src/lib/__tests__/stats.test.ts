@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorize } from "../categories";
-import { bonus, filterPeriod, habits, overview, priceIndex, pricePoints, products, trend, weekdayOf } from "../stats/core";
+import { bonus, filterPeriod, habits, isVolatile, overview, priceIndex, pricePoints, products, trend, weekdayOf } from "../stats/core";
 import type { Item, Receipt } from "../parse/types";
 
 const item = (rawName: string, cents: number, extra: Partial<Item> = {}): Item => ({ rawName, qty: 1, unit: "pc", unitCents: cents, cents, taxClass: "B", deposit: false, discount: false, ...extra });
@@ -88,17 +88,28 @@ describe("price trend", () => {
   it("does not report an increase after a single higher price", () => {
     expect(trend(series(109, 109, 109, 129))!.change).toBe(0);
   });
+  it("treats a drop at the newest purchase as tentative until confirmed", () => {
+    expect(pricePoints(series(109, 109, 79)).map((p) => p.offer)).toEqual([false, false, true]);
+    expect(pricePoints(series(109, 109, 79, 79)).map((p) => p.offer)).toEqual([false, false, false, false]);
+  });
   it("does not read an offer at the end as a price drop", () => {
-    expect(trend(series(109, 109, 79))!.change).toBe(0);
+    expect(trend(series(109, 109, 109, 79))!.change).toBe(0);
   });
   it("shows no change when the price keeps returning to the old level", () => {
     expect(trend(series(149, 149, 229, 149, 149, 229, 229))!.change).toBe(0);
+  });
+  it("treats products with jumping prices as volatile", () => {
+    expect(isVolatile(pricePoints(series(149, 149, 229, 149, 149, 229, 229)))).toBe(true);
+    expect(isVolatile(pricePoints(series(109, 109, 119, 119)))).toBe(false);
   });
   it("reports a lasting decrease", () => {
     expect(trend(series(129, 129, 99, 99))!.change).toBeLessThan(0);
   });
   it("needs three purchases", () => {
     expect(trend(series(100, 200))).toBeNull();
+  });
+  it("does not report an increase when the old price comes back as an offer", () => {
+    expect(trend(series(79, 79, 119, 119, 79))!.change).toBe(0);
   });
   it("keeps offers out of the inflation index", () => {
     const rs = [

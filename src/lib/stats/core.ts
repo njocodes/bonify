@@ -126,7 +126,8 @@ const TREND_MIN = 0.03;
 
 /**
  * One point per day (the higher price if you shopped twice), oldest first. A price that dips well below
- * both neighbours and recovers is flagged as an offer, so it is not read as a price change.
+ * both neighbours and recovers is flagged as an offer, so it is not read as a price change. The same goes for a
+ * big drop at the newest purchase, until a later purchase confirms the lower price.
  */
 export function pricePoints(prices: { date: string; unitCents: number }[]): PricePoint[] {
   const perDay = new Map<string, number>();
@@ -135,7 +136,28 @@ export function pricePoints(prices: { date: string; unitCents: number }[]): Pric
   for (let i = 1; i < pts.length - 1; i++) {
     if (pts[i].unitCents < OFFER_DIP * pts[i - 1].unitCents && pts[i].unitCents < OFFER_DIP * pts[i + 1].unitCents) pts[i].offer = true;
   }
+  // the newest purchase cannot be checked against a later one: a big drop counts as a tentative offer until the next purchase confirms the price
+  const n = pts.length;
+  if (n >= 2 && !pts[n - 2].offer && pts[n - 1].unitCents < OFFER_DIP * pts[n - 2].unitCents) pts[n - 1].offer = true;
   return pts;
+}
+
+/**
+ * True when the price keeps jumping up and down by a lot (a product sold in different pack sizes under one
+ * name, or on and off offer). Such products say little about inflation.
+ */
+export function isVolatile(points: PricePoint[]): boolean {
+  const regular = points.filter((p) => !p.offer);
+  let reversals = 0;
+  let dir = 0;
+  for (let i = 1; i < regular.length; i++) {
+    const r = regular[i].unitCents / regular[i - 1].unitCents - 1;
+    if (Math.abs(r) < 0.08) continue;
+    const d = r > 0 ? 1 : -1;
+    if (dir && d !== dir) reversals++;
+    dir = d;
+  }
+  return reversals >= 2;
 }
 
 export type Trend = {
@@ -168,8 +190,9 @@ export function trend(prices: { date: string; unitCents: number }[]): Trend | nu
   const upTo = lo(last);
   const up = upTo.unitCents / upFrom.unitCents - 1;
   // after the rise the price must not come back down to the old level
-  const rose = regular.findIndex((p) => p.unitCents >= upFrom.unitCents * (1 + TREND_MIN));
-  const stayedUp = rose >= 0 && regular.slice(rose).every((p) => p.unitCents > upFrom.unitCents * (1 + TREND_MIN / 2));
+  // (offers count here too: the old price showing up again means the "old" price was probably the offer)
+  const rose = pts.findIndex((p) => !p.offer && p.unitCents >= upFrom.unitCents * (1 + TREND_MIN));
+  const stayedUp = rose >= 0 && pts.slice(rose).every((p) => p.unitCents > upFrom.unitCents * (1 + TREND_MIN / 2));
   if (up >= TREND_MIN && stayedUp) return { change: up, fromCents: upFrom.unitCents, toCents: upTo.unitCents, fromDate: upFrom.date, toDate: upTo.date, offers };
   const downFrom = lo(first);
   const downTo = hi(last);
@@ -238,7 +261,9 @@ export function priceIndex(receipts: Receipt[]): { month: string; index: number 
   const byProduct = new Map<string, Map<string, number[]>>();
   for (const [name, prices] of raw) {
     const pm = new Map<string, number[]>();
-    for (const p of pricePoints(prices)) {
+    const points = pricePoints(prices);
+    if (isVolatile(points)) continue;
+    for (const p of points) {
       if (p.offer) continue;
       const arr = pm.get(monthOf(p.date)) ?? [];
       arr.push(p.unitCents);
