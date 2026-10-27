@@ -13,7 +13,7 @@ Import your supermarket receipts as PDF and explore what you buy, what it costs 
 ## Features
 
 - **Overview:** spending per month, number of trips, average basket, where the money goes (categories), stores, payment methods and VAT
-- **Products:** every product with total spend, how often you bought it and its **price history**, a list of products that **got more expensive** (one-off offers and discounts are recognised and not counted), plus your **personal inflation** (a price index over the things you actually buy)
+- **Products:** every product with total spend, how often you bought it and its **price history**, lists of products that **got more expensive or cheaper** (one-off offers and discounts are recognised and not counted), plus your **personal inflation** (a price index over the things you actually buy)
 - **Habits:** when you shop (weekday and hour), time between trips, time at the checkout, calendar of spending
 - **Bonus & savings:** bonus balance over time, coupons, discounts at the till, deposit paid
 - **Categories** from a keyword list, correctable per product (kept on your device)

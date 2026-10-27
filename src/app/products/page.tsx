@@ -14,6 +14,26 @@ type Sort = "spend" | "trips" | "price";
 /** Lasting price change without one-off offers, or null when there are too few purchases to tell. */
 const change = (p: Product) => (p.trend ? p.trend.change : null);
 
+function TrendList({ rows, empty, onPick }: { rows: Product[]; empty: string; onPick: (name: string) => void }) {
+  const { t, lang } = useBonify();
+  if (rows.length === 0) return <p className="text-sm text-muted">{empty}</p>;
+  return (
+    <ul className="divide-y divide-line">
+      {rows.map((p) => (
+        <li key={p.rawName}>
+          <button type="button" onClick={() => onPick(p.rawName)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left">
+            <span className="min-w-0">
+              <span className="block truncate text-sm">{p.rawName}</span>
+              <span className="block text-xs text-muted">{t("rising_from_to", { a: eur(p.trend!.fromCents, lang), b: eur(p.trend!.toCents, lang) })} {p.unit === "kg" ? t("per_kg") : ""}</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums">{pct(p.trend!.change, lang)}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function Products() {
   const { t, lang, view, overrides, setOverride } = useBonify();
   const [q, setQ] = useState("");
@@ -27,6 +47,7 @@ export default function Products() {
     return f.sort((a, b) => key(b) - key(a));
   }, [all, q, sort]);
   const rising = useMemo(() => all.filter((p) => p.trend && p.trend.change > 0).sort((a, b) => b.trend!.change - a.trend!.change).slice(0, 10), [all]);
+  const falling = useMemo(() => all.filter((p) => p.trend && p.trend.change < 0).sort((a, b) => a.trend!.change - b.trend!.change).slice(0, 10), [all]);
   const offerCount = useMemo(() => all.reduce((n, p) => n + (p.trend ? p.trend.offers : 0), 0), [all]);
   const current = sel ? all.find((p) => p.rawName === sel) : null;
   const unitLabel = (p: Product) => (p.unit === "kg" ? t("per_kg") : t("per_piece"));
@@ -79,24 +100,12 @@ export default function Products() {
           <section className="card p-4">
             <h2 className="text-base">{t("rising_title")}</h2>
             <p className="mb-3 text-xs text-muted">{t("rising_hint")}</p>
-            {rising.length === 0 ? (
-              <p className="text-sm text-muted">{t("rising_none")}</p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {rising.map((p) => (
-                  <li key={p.rawName}>
-                    <button type="button" onClick={() => setSel(p.rawName)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm">{p.rawName}</span>
-                        <span className="block text-xs text-muted">{t("rising_from_to", { a: eur(p.trend!.fromCents, lang), b: eur(p.trend!.toCents, lang) })} {p.unit === "kg" ? t("per_kg") : ""}</span>
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">{pct(p.trend!.change, lang)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <TrendList rows={rising} empty={t("rising_none")} onPick={setSel} />
             {offerCount > 0 && <p className="mt-3 text-xs text-muted">{t("offers_note", { n: offerCount })}</p>}
+          </section>
+          <section className="card p-4">
+            <h2 className="mb-3 text-base">{t("falling_title")}</h2>
+            <TrendList rows={falling} empty={t("falling_none")} onPick={setSel} />
           </section>
           <div className="flex flex-wrap items-center gap-3">
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("search")} className="min-w-0 flex-1 rounded-full border border-line bg-surface2 px-4 py-2 text-sm" />
