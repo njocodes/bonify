@@ -1,0 +1,28 @@
+export const CATEGORY_IDS = ["produce", "dairy", "meat", "bakery", "frozen", "sweets", "drinks", "pantry", "household", "bags", "other"] as const;
+export type CategoryId = (typeof CATEGORY_IDS)[number];
+
+/** First matching rule wins, so specific rules come before general ones. Names are matched upper-case as printed. */
+const RULES: [CategoryId, RegExp][] = [
+  ["bags", /TASCHE REWE|BAUMWOLLTASCHE|TRAGETASCHE|^RPP /],
+  ["household", /TOIPA|TASCHENT|KUECHENTUECHER|FINISH|SPUELM|REINIG|TABS|ZAHNCR|^WC-|BATTERIE|^FA |MIKROFASER|HAKLE|GEFUEHLSECHT|^BIFF/],
+  ["frozen", /^(BIO )?TK |^PIZZA [A-Z]|BACKFISCH|FISCHSTAEB|CURLY|CRISSCROSS|NUGGETS|GEM PFAN/],
+  ["drinks", /COLA|^CC |SPEZI|PAULANER|SANSIBAR|MARACUJA|VITAMIN\+/],
+  ["pantry", /TOMATENMARK|STUECKIGE TOMATE|MAIS|BRUEHE|SAUCE|KETCHUP|PESTO|ZIMT|VAN\.|MEHL|ZUCKER|RAFFINADE|^S&F|MUESLI|HUMMUS|TAGLIATELLE|TORTIGLIONI|FETTUCCINE|LINGUINE|LASAGNE|PASTA|GNOCCHI|REIS|SPAETZLE|COLLEZ TORTI/],
+  ["sweets", /HARIBO|NUTELLA|^KNUSPER (DOUBLE|SCHOKO)|SCHOKO|CHOCO|CHOC|KEKS|BISCUIT|LEIBNIZ|BAHLSEN|DUPLO|KINDER|MILKA|MAOAM|NIMM 2|GOLDBAER|SCHLUEMPF|SCHNULLER|TUETE|SCHNECKEN|PRINZENR|SOFT TRIP|^TUC |CHIPS|NUESSE|AIRWAVES|^EXTRA |BALLA|PICK UP|PICO/],
+  ["meat", /SCHINKEN|BACON|FILET|SCHNITZEL|HACK|STEAK|BRATW|WIENER|MORTA|FLEISCH|WURST|GEFL|^PU-|^HA-/],
+  ["produce", /GEMUES/],
+  ["dairy", /KAESE|MOZZARELLA|GOUDA|GRANA|MILCH|SAHNE|JOG|QUARK|SKYR|CREME FRAICHE|BUTTER|EIER|ACTIMEL|MEGGLE|EXQUISA|KOERNER BALANCE|NATURJO|MUELLER|FRUJOGH|FRUCHTJ|TRIPLE ZERO|STREICHZA|FETA|KAERGARDEN/],
+  ["bakery", /BROT|BR\.|BAGUET|FLAMMKUCHEN|PIZZATEIG|WRAPS|STREUSEL|KNUSPERBR|FRUEHSTUECKSBR|SAMMYS|BACKFR|TOAST|BROETCHEN/],
+  ["produce", /BEERE|HEIDELB|MANDARINE|CLEMENT|KAKI|PFIRSIC|APFEL|CHAMP|TOMATE|GURKE|KAROTTE|KARTOFF|PAPRIKA|SELLERIE|BROCCOLI|SPINAT|SALAT|KRAEUTER|THYMIAN|BANANE|ZITRON|ZWIEBEL|KNOBLAUCH/],
+];
+
+export function categorize(rawName: string): CategoryId {
+  const name = rawName.toUpperCase();
+  for (const [id, re] of RULES) if (re.test(name)) return id;
+  return "other";
+}
+
+/** Category of a product: the user's correction if there is one, otherwise the keyword list. */
+export function categoryOf(rawName: string, overrides: Record<string, CategoryId> = {}): CategoryId {
+  return overrides[rawName] ?? categorize(rawName);
+}

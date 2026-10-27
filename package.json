@@ -1,0 +1,44 @@
+{
+  "name": "bonify",
+  "version": "0.1.0",
+  "description": "Explore your own grocery shopping from digital receipts in the browser. Private, static, no uploads.",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/njocodes/bonify.git"
+  },
+  "bugs": {
+    "url": "https://github.com/njocodes/bonify/issues"
+  },
+  "keywords": ["receipts", "ebon", "rewe", "groceries", "nextjs", "pwa", "privacy"],
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "node scripts/make-sw.mjs",
+    "build": "next build",
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "predev": "node scripts/make-sw.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "idb": "^8.0.4",
+    "next": "16.4.3",
+    "pdfjs-dist": "^5.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^5.0.5"
+  }
+}

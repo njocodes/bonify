@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+/* ---------- design tokens (classic = default), same system as Statify with an amber accent ---------- */
+:root {
+  --bg: #0d0c0a;
+  --surface: #181612;
+  --surface-2: #211e18;
+  --border: #302c23;
+  --fg: #f4f1ea;
+  --muted: #a39b8a;
+  --accent: #ffb020;
+  --accent-dim: #d98f00;
+  --on-accent: #000000;
+  --ink: #f4f1ea;
+  --bw: 1px;
+  --radius: 16px;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --display-weight: 700;
+  --display-tracking: -0.01em;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accentdim: var(--accent-dim);
+  --color-onaccent: var(--on-accent);
+  --font-sans: var(--font-body);
+}
+
+/* ---------- CLEAN: black and white, follows the phone ---------- */
+[data-theme="clean"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f3f3f3;
+  --border: #e6e6e6;
+  --fg: #0a0a0a;
+  --muted: #6b6b6b;
+  --accent: #b45309;
+  --accent-dim: #92400e;
+  --on-accent: #ffffff;
+  --ink: #0a0a0a;
+  --radius: 14px;
+  --display-weight: 600;
+  --display-tracking: -0.02em;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="clean"] {
+    --bg: #000000;
+    --surface: #000000;
+    --surface-2: #161616;
+    --border: #262626;
+    --fg: #f5f5f5;
+    --muted: #8a8a8a;
+    --accent: #ffb020;
+    --accent-dim: #d98f00;
+    --on-accent: #000000;
+    --ink: #f5f5f5;
+  }
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+.card {
+  position: relative;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+}
+.no-scrollbar { scrollbar-width: none; overscroll-behavior-x: contain; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+:root { --ease-spring: cubic-bezier(0.32, 0.72, 0, 1); }
+a, button, summary, label, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button { transition: transform 0.18s var(--ease-spring), background-color 0.15s, color 0.15s; }
+button:active { transform: scale(0.96); transition-duration: 0.05s; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page-in { animation: page-in 0.28s var(--ease-spring) backwards; }
+@keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.stagger > * { animation: reveal 0.5s var(--ease-spring) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.stagger > :nth-child(1) { --i: 0; } .stagger > :nth-child(2) { --i: 1; } .stagger > :nth-child(3) { --i: 2; } .stagger > :nth-child(4) { --i: 3; }
+.stagger > :nth-child(5) { --i: 4; } .stagger > :nth-child(6) { --i: 5; } .stagger > :nth-child(n+7) { --i: 6; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* iOS zooms into fields below 16px */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bg-accent:focus-visible { outline-color: var(--fg); }
