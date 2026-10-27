@@ -37,7 +37,14 @@ async function expand(files: File[]): Promise<{ name: string; data: Uint8Array }
 
 export async function ingestFiles(files: File[], onProgress?: (done: number, total: number) => void): Promise<IngestResult> {
   const pdfs = await expand(files);
-  const pdfjs = await loadPdfJs();
+  let pdfjs: PdfJs;
+  try {
+    pdfjs = await loadPdfJs();
+  } catch (e) {
+    pdfjsP = null;
+    console.error("Bonify: could not load the PDF reader", e);
+    return { receipts: [], failed: [`PDF reader (${e instanceof Error ? e.message : String(e)})`] };
+  }
   const receipts: Receipt[] = [];
   const failed: string[] = [];
   let done = 0;
@@ -46,8 +53,10 @@ export async function ingestFiles(files: File[], onProgress?: (done: number, tot
       const r = parseReceipt(await pdfLines(p.data, pdfjs));
       if (r && r.date && r.items.length) receipts.push(r);
       else failed.push(p.name);
-    } catch {
-      failed.push(p.name);
+    } catch (e) {
+      // keep the reason visible: a silent failure looks the same for a broken PDF and an unsupported browser
+      console.error("Bonify: could not read", p.name, e);
+      failed.push(`${p.name} (${e instanceof Error ? e.message : String(e)})`);
     }
     onProgress?.(++done, pdfs.length);
   }
